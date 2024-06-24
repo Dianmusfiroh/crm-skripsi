@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Anggota;
+use App\Models\Broadcast;
 use App\Models\Projek;
 use App\Models\Tugas;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 
 class TugasController extends Controller
 {
@@ -109,6 +113,36 @@ class TugasController extends Controller
             'id_anggota' => $request->karyawan_id,
             'status_progres' => 'baru',
         ]);
+        $pesan = "*Laporan*\n\n". 
+                "Kamu mendapatkan Tugas :\n". 
+                "Task: *$data->judul*\n". 
+   
+                "Terima kasih.\n";
+
+                $message = [
+                        'sender' => '999',
+                        'nomor' => $data->anggota->no_hp,
+                        'message'   => $pesan
+                    ];
+                $curl = curl_init();
+                curl_setopt_array($curl, array(
+                  CURLOPT_URL => 'http://localhost:3000/send-message',
+                  CURLOPT_RETURNTRANSFER => true,
+                  CURLOPT_ENCODING => '',
+                  CURLOPT_MAXREDIRS => 10,
+                  CURLOPT_TIMEOUT => 0,
+                  CURLOPT_FOLLOWLOCATION => true,
+                  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                  CURLOPT_CUSTOMREQUEST => 'POST',
+                  CURLOPT_POSTFIELDS =>http_build_query($message),
+                  CURLOPT_HTTPHEADER => array(
+                    'Content-Type: application/x-www-form-urlencoded'
+                  ),
+                ));
+                
+                $response = curl_exec($curl);
+                
+                curl_close($curl);
         if ($data) {
             return redirect()
             ->back()
@@ -161,7 +195,6 @@ class TugasController extends Controller
         $data = Tugas::find($request->id);
             $data->status_progres = 'proses';
             $data->save();
-            $format_enam_dua = substr_replace($data->anggota->no_hp,'62',0,1);
             $pesan = "*Laporan*\n\n". 
                     "Task: *$data->judul*\n". 
                     "Tugas Sementara Dikerjakan :\n". 
@@ -170,7 +203,7 @@ class TugasController extends Controller
     
                     $message = [
                             'sender' => '999',
-                            'nomor' => $format_enam_dua,
+                            'nomor' => $data->anggota->no_hp,
                             'message'   => $pesan
                         ];
                     $curl = curl_init();
@@ -190,12 +223,21 @@ class TugasController extends Controller
                     ));
                     
                     $response = curl_exec($curl);
-                    
+                    $jsonData = json_decode($response, true); 
+                    if ($jsonData['status'] = 'false') {
+                        Broadcast::create([
+                            'kd_list_broadcast' => Uuid::uuid4()->toString(),
+                            'pesan' => $pesan,
+                            'status' => '0',
+                            'nomor' => $data->anggota->no_hp
+                        ]);
+                    }
                     curl_close($curl);
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Successfully',
-                'response' => $response
+                'response' => $response,
             ]);
 
         
@@ -204,7 +246,7 @@ class TugasController extends Controller
         $data = Tugas::find($request->id);
         $data->status_progres = 'testing';
         $data->save();
-        $format_enam_dua = substr_replace($data->anggota->no_hp,'62',0,1);
+        $kepalatim = DB::select("SELECT * FROM `users` u , t_anggota a WHERE u.id = a.user_id AND u.role_id = '2' AND a.id_tim = '".$data->anggota->id_tim."'");
         $pesan = "*Laporan*\n\n". 
                 "Task: *$data->judul*\n". 
                 "Tugas Sementara Diperiksa :\n". 
@@ -213,7 +255,7 @@ class TugasController extends Controller
 
                 $message = [
                         'sender' => '999',
-                        'nomor' => $format_enam_dua,
+                        'nomor' =>$data->anggota->no_hp,
                         'message'   => $pesan
                     ];
                 $curl = curl_init();
@@ -233,9 +275,58 @@ class TugasController extends Controller
                 ));
                 
                 $response = curl_exec($curl);
-                
+                $jsonData1 = json_decode($response, true); 
+
+                if ($jsonData1['status'] = 'false') {
+                    Broadcast::create([
+                        'kd_list_broadcast' => Uuid::uuid4()->toString(),
+                        'pesan' => $pesan,
+                        'status' => '0',
+                        'nomor' => $data->anggota->no_hp
+                    ]);
+                }
                 curl_close($curl);
-        return response()->json([
+                // pimpinan tim
+                $nama_anggota = $data->anggota->name;
+                $pesan = "*Laporan*\n\n". 
+                "Tugas dengan Task: *$data->judul* sudah dikerjakan oleh *$nama_anggota*\n". 
+                "Tolong di Verifikasi :\n". 
+   
+                "Terima kasih.\n";
+
+                $message = [
+                        'sender' => '999',
+                        'nomor' => $kepalatim[0]->no_hp,
+                        'message'   => $pesan
+                    ];
+                $curl = curl_init();
+                curl_setopt_array($curl, array(
+                  CURLOPT_URL => 'http://localhost:3000/send-message',
+                  CURLOPT_RETURNTRANSFER => true,
+                  CURLOPT_ENCODING => '',
+                  CURLOPT_MAXREDIRS => 10,
+                  CURLOPT_TIMEOUT => 0,
+                  CURLOPT_FOLLOWLOCATION => true,
+                  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                  CURLOPT_CUSTOMREQUEST => 'POST',
+                  CURLOPT_POSTFIELDS =>http_build_query($message),
+                  CURLOPT_HTTPHEADER => array(
+                    'Content-Type: application/x-www-form-urlencoded'
+                  ),
+                ));
+                
+                $response2 = curl_exec($curl);
+                $jsonData = json_decode($response2, true); 
+                if ($jsonData['status'] = 'false') {
+                    Broadcast::create([
+                        'kd_list_broadcast' => Uuid::uuid4()->toString(),
+                        'pesan' => $pesan,
+                        'status' => '0',
+                        'nomor' => $kepalatim[0]->no_hp
+                    ]);
+                }
+                curl_close($curl);
+            return response()->json([
             'status' => 'success',
             'message' => 'Successfully',
             'response' => $response
@@ -274,7 +365,16 @@ class TugasController extends Controller
                 ));
                 
                 $response = curl_exec($curl);
-                
+                $jsonData = json_decode($response, true); 
+                if ($jsonData['status'] = 'false') {
+                    Broadcast::create([
+                        'kd_list_broadcast' => Uuid::uuid4()->toString(),
+                        'pesan' => $pesan,
+                        'status' => '0',
+                        'nomor' => $data->anggota->no_hp
+                    ]);
+                }
+                curl_close($curl);
                 curl_close($curl);
         return response()->json([
             'status' => 'success',

@@ -74,7 +74,7 @@
                 </div>
                 <div class="form-group">
                     <label for="example-text-input" class="form-control-label">No Hp</label>
-                    <input class="form-control" type="text" name="no_hp" placeholder="No Handphone" id="example-text-input">
+                    <input class="form-control" type="number" name="no_hp" placeholder="No Handphone" id="example-text-input">
                 </div>
                 <div class="form-group">
                   <label for="example-text-input" class="form-control-label">Alamat</label>

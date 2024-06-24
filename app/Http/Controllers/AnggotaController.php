@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Anggota;
 use App\Models\Divisi;
 use App\Models\Role;
+use App\Models\Tugas;
 use App\Models\User;
 use Illuminate\Hashing\HashManager;
 use Illuminate\Http\Request;
@@ -58,6 +59,8 @@ class AnggotaController extends Controller
             if ($validator->fails()) {
                 return back()->with('toast_error', $validator->messages()->all()[0])->withInput();
             }
+        $format_enam_dua = substr_replace($request->no_hp,'62',0,1);
+
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
@@ -68,7 +71,7 @@ class AnggotaController extends Controller
                 'name' => $request->name,
                 'alamat' => $request->alamat,
                 'id_tim' => $request->divisi,
-                'no_hp' => $request->no_hp,
+                'no_hp' => $format_enam_dua,
                 'user_id' => $user->id
             ]);
 
@@ -127,12 +130,15 @@ class AnggotaController extends Controller
     {
         
         $data = Anggota::find($id);
+        $format_enam_dua = substr_replace($request->no_hp,'62',0,1);
+
         $data->update([
             'name' => $request->name,
             'alamat' => $request->alamat,
             'id_tim' => $request->divisi_id,
-            'no_hp' => $request->no_hp,
+            'no_hp' => $format_enam_dua,
         ]);
+
         $user = User::find($data->user_id);
         $user->update([
             'name' => $request->name,
@@ -142,14 +148,14 @@ class AnggotaController extends Controller
         ]);
         if ($data) {
             return redirect()
-            ->back()
+            ->route('anggota.index')
             ->withInput()
             ->with([
-                'success' => 'Data Berhasil Ditambahkan'
+                'success' => 'Data Berhasil Diubah'
             ]);
         } else {
             return redirect()
-                ->back()
+            ->route('anggota.index')
                 ->withInput()
                 ->with([
                     'error' => 'Terjadi Sesuatu Masalah, Mohon Coba Lagi'
@@ -162,6 +168,15 @@ class AnggotaController extends Controller
      */
     public function destroy(string $id)
     {
-
+        $data = Anggota::find($id);
+        $user = User::find($data->user_id);
+        $user->delete();
+        $tugas = Tugas::where('id_anggota', $id)->delete();
+        $data->delete();
+        return redirect()
+            ->back()
+            ->with([
+                'success' => 'Data Berhasil Dihapus'
+            ]);
     }
 }
